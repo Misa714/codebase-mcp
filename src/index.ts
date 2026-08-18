@@ -5,11 +5,13 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { handleGetProjectTree } from "./tools/tree.js";
 import { handleSearchCodebase } from "./tools/search.js";
+import { handleSearchHybrid } from "./tools/hybridSearch.js";
 import { handleReadProjectFile } from "./tools/reader.js";
 import { handleInspectTechStack } from "./tools/techStack.js";
 import { handleGetFileOutline } from "./tools/outline.js";
 import { handleGetFileDependencies } from "./tools/dependencies.js";
 import { handleGetGitChanges } from "./tools/git.js";
+import { handleApplyFilePatch } from "./tools/patch.js";
 import { startInteractiveCLI } from "./cli.js";
 
 // Extraer argumentos de la línea de comandos
@@ -35,7 +37,7 @@ if (args.includes("--cli") || args.includes("-c")) {
   const server = new Server(
     {
       name: "codebase-mcp",
-      version: "1.3.0",
+      version: "2.0.0",
     },
     {
       capabilities: {
@@ -72,10 +74,41 @@ if (args.includes("--cli") || args.includes("-c")) {
           },
         },
         {
+          name: "search_hybrid",
+          description: isSpanish
+            ? "Búsqueda híbrida inteligente (BM25 + Coincidencia difusa + Relevancia de símbolos) para encontrar código por lenguaje natural o términos técnicos en milisegundos."
+            : "Smart hybrid code search (BM25 + Fuzzy match + Symbol relevance) to find code using natural language queries or technical terms in milliseconds.",
+          inputSchema: {
+            type: "object",
+            properties: {
+              query: {
+                type: "string",
+                description: isSpanish
+                  ? "Consulta en lenguaje natural o término a buscar (ej: 'donde se comprueban credenciales' o 'auth token')"
+                  : "Natural language query or search term (e.g. 'where credentials are checked' or 'auth token')",
+              },
+              max_results: {
+                type: "number",
+                description: isSpanish ? "Número máximo de archivos a retornar (por defecto: 10)" : "Maximum matching files to return (default: 10)",
+              },
+              file_extensions: {
+                type: "array",
+                items: { type: "string" },
+                description: isSpanish ? "Lista opcional de extensiones a filtrar (ej: ['ts', 'py'])" : "Optional file extension filters (e.g. ['ts', 'py'])",
+              },
+              path_pattern: {
+                type: "string",
+                description: isSpanish ? "Filtro opcional por subcarpeta (ej: 'src/tools')" : "Optional path or folder filter (e.g. 'src/tools')",
+              },
+            },
+            required: ["query"],
+          },
+        },
+        {
           name: "search_codebase",
           description: isSpanish
-            ? "Busca un patrón de texto o expresión regular en todo el código del proyecto, con filtros opcionales por extensión o subcarpeta."
-            : "Searches the codebase for a text pattern or regular expression, with optional extension and folder filters.",
+            ? "Busca un patrón de texto exacto o expresión regular en todo el código del proyecto, con filtros por extensión o subcarpeta."
+            : "Searches the codebase for an exact text pattern or regular expression, with optional extension and folder filters.",
           inputSchema: {
             type: "object",
             properties: {
@@ -168,6 +201,34 @@ if (args.includes("--cli") || args.includes("-c")) {
           },
         },
         {
+          name: "apply_file_patch",
+          description: isSpanish
+            ? "Aplica una edición o reemplazo quirúrgico de código en un archivo con validación previa de coincidencia exacta para garantizar la integridad."
+            : "Applies a surgical code edit or patch to a file with pre-validation of target content to guarantee integrity.",
+          inputSchema: {
+            type: "object",
+            properties: {
+              relative_path: {
+                type: "string",
+                description: isSpanish ? "Ruta relativa del archivo a modificar" : "Relative path of the file to patch",
+              },
+              target_content: {
+                type: "string",
+                description: isSpanish ? "Bloque exacto de código a reemplazar" : "Exact code block to be replaced",
+              },
+              replacement_content: {
+                type: "string",
+                description: isSpanish ? "Nuevo bloque de código reemplazante" : "New replacement code block",
+              },
+              allow_multiple: {
+                type: "boolean",
+                description: isSpanish ? "Si es true, reemplaza todas las ocurrencias (por defecto: false)" : "If true, replaces all occurrences (default: false)",
+              },
+            },
+            required: ["relative_path", "target_content", "replacement_content"],
+          },
+        },
+        {
           name: "read_project_file",
           description: isSpanish
             ? "Lee el contenido de un archivo específico del proyecto de forma segura con números de línea."
@@ -217,6 +278,13 @@ if (args.includes("--cli") || args.includes("-c")) {
       const subPath = typeof toolArgs?.sub_path === "string" ? toolArgs.sub_path : undefined;
       return await handleGetProjectTree(rootDir, maxDepth, subPath);
     },
+    search_hybrid: async (toolArgs) => {
+      const query = String(toolArgs?.query || "");
+      const maxResults = typeof toolArgs?.max_results === "number" ? toolArgs.max_results : 10;
+      const fileExtensions = toolArgs?.file_extensions;
+      const pathPattern = typeof toolArgs?.path_pattern === "string" ? toolArgs.path_pattern : undefined;
+      return await handleSearchHybrid(rootDir, query, maxResults, fileExtensions, pathPattern);
+    },
     search_codebase: async (toolArgs) => {
       const query = String(toolArgs?.query || "");
       const maxResults = typeof toolArgs?.max_results === "number" ? toolArgs.max_results : 30;
@@ -236,6 +304,13 @@ if (args.includes("--cli") || args.includes("-c")) {
     get_git_changes: async (toolArgs) => {
       const includeDiff = toolArgs?.include_diff !== undefined ? Boolean(toolArgs.include_diff) : true;
       return await handleGetGitChanges(rootDir, includeDiff);
+    },
+    apply_file_patch: async (toolArgs) => {
+      const relativePath = String(toolArgs?.relative_path || "");
+      const targetContent = String(toolArgs?.target_content || "");
+      const replacementContent = String(toolArgs?.replacement_content || "");
+      const allowMultiple = Boolean(toolArgs?.allow_multiple);
+      return await handleApplyFilePatch(rootDir, relativePath, targetContent, replacementContent, allowMultiple);
     },
     read_project_file: async (toolArgs) => {
       const relativePath = String(toolArgs?.relative_path || "");
