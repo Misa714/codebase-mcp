@@ -275,30 +275,30 @@ if (args.includes("--cli") || args.includes("-c")) {
   const toolRegistry: Record<string, ToolHandler> = {
     get_project_tree: async (toolArgs) => {
       const maxDepth = typeof toolArgs?.max_depth === "number" ? toolArgs.max_depth : 4;
-      const subPath = typeof toolArgs?.sub_path === "string" ? toolArgs.sub_path : undefined;
+      const subPath = typeof toolArgs?.sub_path === "string" ? toolArgs.sub_path.trim() : undefined;
       return await handleGetProjectTree(rootDir, maxDepth, subPath);
     },
     search_hybrid: async (toolArgs) => {
-      const query = String(toolArgs?.query || "");
+      const query = String(toolArgs?.query || "").trim();
       const maxResults = typeof toolArgs?.max_results === "number" ? toolArgs.max_results : 10;
       const fileExtensions = toolArgs?.file_extensions;
-      const pathPattern = typeof toolArgs?.path_pattern === "string" ? toolArgs.path_pattern : undefined;
+      const pathPattern = typeof toolArgs?.path_pattern === "string" ? toolArgs.path_pattern.trim() : undefined;
       return await handleSearchHybrid(rootDir, query, maxResults, fileExtensions, pathPattern);
     },
     search_codebase: async (toolArgs) => {
-      const query = String(toolArgs?.query || "");
+      const query = String(toolArgs?.query || "").trim();
       const maxResults = typeof toolArgs?.max_results === "number" ? toolArgs.max_results : 30;
       const useRegex = Boolean(toolArgs?.use_regex);
       const fileExtensions = toolArgs?.file_extensions;
-      const pathPattern = typeof toolArgs?.path_pattern === "string" ? toolArgs.path_pattern : undefined;
+      const pathPattern = typeof toolArgs?.path_pattern === "string" ? toolArgs.path_pattern.trim() : undefined;
       return await handleSearchCodebase(rootDir, query, maxResults, useRegex, fileExtensions, pathPattern);
     },
     get_file_outline: async (toolArgs) => {
-      const relativePath = String(toolArgs?.relative_path || "");
+      const relativePath = String(toolArgs?.relative_path || "").trim();
       return await handleGetFileOutline(rootDir, relativePath);
     },
     get_file_dependencies: async (toolArgs) => {
-      const relativePath = String(toolArgs?.relative_path || "");
+      const relativePath = String(toolArgs?.relative_path || "").trim();
       return await handleGetFileDependencies(rootDir, relativePath);
     },
     get_git_changes: async (toolArgs) => {
@@ -306,14 +306,14 @@ if (args.includes("--cli") || args.includes("-c")) {
       return await handleGetGitChanges(rootDir, includeDiff);
     },
     apply_file_patch: async (toolArgs) => {
-      const relativePath = String(toolArgs?.relative_path || "");
+      const relativePath = String(toolArgs?.relative_path || "").trim();
       const targetContent = String(toolArgs?.target_content || "");
       const replacementContent = String(toolArgs?.replacement_content || "");
       const allowMultiple = Boolean(toolArgs?.allow_multiple);
       return await handleApplyFilePatch(rootDir, relativePath, targetContent, replacementContent, allowMultiple);
     },
     read_project_file: async (toolArgs) => {
-      const relativePath = String(toolArgs?.relative_path || "");
+      const relativePath = String(toolArgs?.relative_path || "").trim();
       const startLine = typeof toolArgs?.start_line === "number" ? toolArgs.start_line : undefined;
       const endLine = typeof toolArgs?.end_line === "number" ? toolArgs.end_line : undefined;
       return await handleReadProjectFile(rootDir, relativePath, startLine, endLine);
