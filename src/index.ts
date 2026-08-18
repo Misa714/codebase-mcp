@@ -7,6 +7,7 @@ import { handleGetProjectTree } from "./tools/tree.js";
 import { handleSearchCodebase } from "./tools/search.js";
 import { handleReadProjectFile } from "./tools/reader.js";
 import { handleInspectTechStack } from "./tools/techStack.js";
+import { handleGetFileOutline } from "./tools/outline.js";
 import { startInteractiveCLI } from "./cli.js";
 
 // Extraer argumentos de la línea de comandos
@@ -32,7 +33,7 @@ if (args.includes("--cli") || args.includes("-c")) {
   const server = new Server(
     {
       name: "codebase-mcp",
-      version: "1.1.0",
+      version: "1.2.0",
     },
     {
       capabilities: {
@@ -59,14 +60,20 @@ if (args.includes("--cli") || args.includes("-c")) {
                   ? "Profundidad máxima de carpetas a escanear (por defecto: 4)"
                   : "Maximum directory depth to scan (default: 4)",
               },
+              sub_path: {
+                type: "string",
+                description: isSpanish
+                  ? "Subcarpeta o ruta relativa opcional a inspeccionar (ej: 'src/tools')"
+                  : "Optional subfolder or relative path to inspect (e.g. 'src/tools')",
+              },
             },
           },
         },
         {
           name: "search_codebase",
           description: isSpanish
-            ? "Busca un patrón de texto o expresión regular en todo el código del proyecto, devolviendo archivos y líneas coincidentes."
-            : "Searches the codebase for a text pattern or regular expression, returning matching files, line numbers, and snippets.",
+            ? "Busca un patrón de texto o expresión regular en todo el código del proyecto, con filtros opcionales por extensión o subcarpeta."
+            : "Searches the codebase for a text pattern or regular expression, with optional extension and folder filters.",
           inputSchema: {
             type: "object",
             properties: {
@@ -88,8 +95,39 @@ if (args.includes("--cli") || args.includes("-c")) {
                   ? "Si es true, interpreta la búsqueda como una Expresión Regular (por defecto: false)"
                   : "If true, treats the query as a Regular Expression (default: false)",
               },
+              file_extensions: {
+                type: "array",
+                items: { type: "string" },
+                description: isSpanish
+                  ? "Lista opcional de extensiones a filtrar (ej: ['ts', 'js'] o ['py'])"
+                  : "Optional list of file extensions to filter (e.g. ['ts', 'js'] or ['py'])",
+              },
+              path_pattern: {
+                type: "string",
+                description: isSpanish
+                  ? "Filtro opcional por ruta o subcarpeta (ej: 'src/tools')"
+                  : "Optional path or subfolder filter (e.g. 'src/tools')",
+              },
             },
             required: ["query"],
+          },
+        },
+        {
+          name: "get_file_outline",
+          description: isSpanish
+            ? "Extrae el esquema e índice de símbolos (funciones, clases, interfaces, métodos, encabezados) de un archivo con sus números de línea para ahorrar contexto."
+            : "Extracts an outline of declarations and symbols (functions, classes, interfaces, methods, headers) with line numbers to save context tokens.",
+          inputSchema: {
+            type: "object",
+            properties: {
+              relative_path: {
+                type: "string",
+                description: isSpanish
+                  ? "Ruta relativa del archivo a inspeccionar (ej: 'src/index.ts')"
+                  : "Relative path of the file to inspect (e.g. 'src/index.ts')",
+              },
+            },
+            required: ["relative_path"],
           },
         },
         {
@@ -139,13 +177,20 @@ if (args.includes("--cli") || args.includes("-c")) {
   const toolRegistry: Record<string, ToolHandler> = {
     get_project_tree: async (toolArgs) => {
       const maxDepth = typeof toolArgs?.max_depth === "number" ? toolArgs.max_depth : 4;
-      return await handleGetProjectTree(rootDir, maxDepth);
+      const subPath = typeof toolArgs?.sub_path === "string" ? toolArgs.sub_path : undefined;
+      return await handleGetProjectTree(rootDir, maxDepth, subPath);
     },
     search_codebase: async (toolArgs) => {
       const query = String(toolArgs?.query || "");
       const maxResults = typeof toolArgs?.max_results === "number" ? toolArgs.max_results : 30;
       const useRegex = Boolean(toolArgs?.use_regex);
-      return await handleSearchCodebase(rootDir, query, maxResults, useRegex);
+      const fileExtensions = toolArgs?.file_extensions;
+      const pathPattern = typeof toolArgs?.path_pattern === "string" ? toolArgs.path_pattern : undefined;
+      return await handleSearchCodebase(rootDir, query, maxResults, useRegex, fileExtensions, pathPattern);
+    },
+    get_file_outline: async (toolArgs) => {
+      const relativePath = String(toolArgs?.relative_path || "");
+      return await handleGetFileOutline(rootDir, relativePath);
     },
     read_project_file: async (toolArgs) => {
       const relativePath = String(toolArgs?.relative_path || "");
@@ -193,5 +238,3 @@ if (args.includes("--cli") || args.includes("-c")) {
     process.exit(1);
   });
 }
-
-

@@ -3,6 +3,7 @@ import { handleGetProjectTree } from "../src/tools/tree.js";
 import { handleSearchCodebase } from "../src/tools/search.js";
 import { handleReadProjectFile } from "../src/tools/reader.js";
 import { handleInspectTechStack } from "../src/tools/techStack.js";
+import { handleGetFileOutline, extractSymbols } from "../src/tools/outline.js";
 
 /**
  * Suite de pruebas unitarias para los manejadores de herramientas MCP.
@@ -16,6 +17,13 @@ describe("MCP tool handlers", () => {
     expect(result).toContain("src");
   });
 
+  it("handleGetProjectTree with sub_path should inspect subfolder", async () => {
+    const result = await handleGetProjectTree(root, 2, "src/tools");
+    expect(result).toContain("Project Tree:");
+    expect(result).toContain("outline.ts");
+    expect(result).toContain("tree.ts");
+  });
+
   it("handleSearchCodebase should find keyword matches", async () => {
     const result = await handleSearchCodebase(root, "handleGetProjectTree", 5);
     expect(result).toContain("matches for");
@@ -25,6 +33,17 @@ describe("MCP tool handlers", () => {
   it("handleSearchCodebase with regex should match regex patterns", async () => {
     const result = await handleSearchCodebase(root, "handle[A-Z]\\w+", 5, true);
     expect(result).toContain("matches for");
+  });
+
+  it("handleSearchCodebase with file_extensions should filter files", async () => {
+    const result = await handleSearchCodebase(root, "handleGetProjectTree", 10, false, ["ts"]);
+    expect(result).toContain("matches for");
+    expect(result).not.toContain(".md:");
+  });
+
+  it("handleSearchCodebase with path_pattern should filter by subfolder", async () => {
+    const result = await handleSearchCodebase(root, "handleGetProjectTree", 10, false, undefined, "src/tools");
+    expect(result).toContain("src/tools/tree.ts");
   });
 
   it("handleReadProjectFile should read specified lines safely", async () => {
@@ -43,5 +62,37 @@ describe("MCP tool handlers", () => {
     expect(result).toContain("[Node.js] Project: 714-mcp-tool");
     expect(result).toContain("Key Dependencies");
   });
-});
 
+  it("handleGetFileOutline should extract symbols from TypeScript files", async () => {
+    const result = await handleGetFileOutline(root, "src/tools/tree.ts");
+    expect(result).toContain("File Outline: src/tools/tree.ts");
+    expect(result).toContain("handleGetProjectTree");
+    expect(result).toContain("[function]");
+  });
+
+  it("handleGetFileOutline should extract headings from Markdown files", async () => {
+    const result = await handleGetFileOutline(root, "README.md");
+    expect(result).toContain("File Outline: README.md");
+    expect(result).toContain("[h1]");
+  });
+
+  it("handleGetFileOutline should block sensitive files", async () => {
+    const result = await handleGetFileOutline(root, ".env");
+    expect(result).toContain("Error: Access denied");
+  });
+
+  it("extractSymbols should parse functions, classes and methods across languages", () => {
+    const tsCode = `
+      export interface User { id: string; }
+      export class UserService {
+        async getUser(id: string): Promise<User> { return { id }; }
+      }
+      export const helper = () => true;
+    `;
+    const symbols = extractSymbols(tsCode, ".ts");
+    expect(symbols.some((s) => s.signature.includes("interface User"))).toBe(true);
+    expect(symbols.some((s) => s.signature.includes("class UserService"))).toBe(true);
+    expect(symbols.some((s) => s.signature.includes("getUser"))).toBe(true);
+    expect(symbols.some((s) => s.signature.includes("helper"))).toBe(true);
+  });
+});
