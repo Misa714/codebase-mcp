@@ -21,7 +21,7 @@
   },
   "homepage": "https://github.com/Misa714/codebase-mcp#readme",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && (chmod +x dist/index.js 2>/dev/null || true)",
     "start": "node ./dist/index.js",
     "dev": "tsx src/index.ts",
     "test": "vitest run",

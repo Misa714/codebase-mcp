@@ -23,7 +23,7 @@ export interface SymbolEntry {
  * @returns Lista de símbolos ordenados por número de línea.
  */
 export function extractSymbols(content: string, ext: string): SymbolEntry[] {
-  const lines = content.split("\n");
+  const lines = content.replace(/\r\n/g, "\n").split("\n");
   const symbols: SymbolEntry[] = [];
   const lowerExt = ext.toLowerCase();
 

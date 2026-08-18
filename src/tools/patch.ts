@@ -1,10 +1,11 @@
 import fs from "fs/promises";
 import path from "path";
 import { isPathSafe, isSensitiveFile, getIgnoreInstanceAsync, isBinaryFileAsync } from "../utils/fileSystem.js";
+import { clearIndexCache } from "./hybridSearch.js";
 
 /**
  * Aplica modificaciones quirúrgicas y reemplazos de código seguros en un archivo específico.
- * Valida la existencia exacta del bloque a reemplazar antes de escribir, evitando inconsistencias o sobreescrituras accidentales.
+ * Normaliza automáticamente saltos de línea (CRLF y LF) y valida la existencia exacta del bloque antes de escribir.
  * 
  * @param rootPath Ruta absoluta de la raíz del proyecto.
  * @param relativePath Ruta relativa del archivo a modificar.
@@ -46,26 +47,40 @@ export async function handleApplyFilePatch(
 
     const currentContent = await fs.readFile(fullPath, "utf-8");
 
-    if (!currentContent.includes(targetContent)) {
+    // Detectar si el archivo original en disco usa saltos de línea Windows (CRLF)
+    const usesCrlf = currentContent.includes("\r\n");
+
+    // Normalizar a LF para comparar y reemplazar sin errores por diferencias de sistema operativo
+    const normalizedCurrent = currentContent.replace(/\r\n/g, "\n");
+    const normalizedTarget = targetContent.replace(/\r\n/g, "\n");
+    const normalizedReplacement = replacementContent.replace(/\r\n/g, "\n");
+
+    if (!normalizedCurrent.includes(normalizedTarget)) {
       return `Error: Target content was not found in "${relativePath}". Please re-read the file with 'read_project_file' to ensure exact character matching (including indentation and whitespace).`;
     }
 
-    const occurrences = currentContent.split(targetContent).length - 1;
+    const occurrences = normalizedCurrent.split(normalizedTarget).length - 1;
     if (occurrences > 1 && !allowMultiple) {
       return `Error: Target content occurs ${occurrences} times in "${relativePath}". Set 'allow_multiple: true' or provide more surrounding context to uniquely target the block.`;
     }
 
-    let updatedContent: string;
+    let updatedNormalized: string;
     if (allowMultiple) {
-      updatedContent = currentContent.split(targetContent).join(replacementContent);
+      updatedNormalized = normalizedCurrent.split(normalizedTarget).join(normalizedReplacement);
     } else {
-      updatedContent = currentContent.replace(targetContent, replacementContent);
+      updatedNormalized = normalizedCurrent.replace(normalizedTarget, normalizedReplacement);
     }
 
-    await fs.writeFile(fullPath, updatedContent, "utf-8");
+    // Restaurar el formato original de saltos de línea del archivo
+    const finalContent = usesCrlf ? updatedNormalized.replace(/\n/g, "\r\n") : updatedNormalized;
 
-    const oldLines = currentContent.split("\n").length;
-    const newLines = updatedContent.split("\n").length;
+    await fs.writeFile(fullPath, finalContent, "utf-8");
+
+    // Invalidar inmediatamente la caché del índice de búsqueda en memoria
+    clearIndexCache();
+
+    const oldLines = normalizedCurrent.split("\n").length;
+    const newLines = updatedNormalized.split("\n").length;
 
     return `✅ Successfully patched "${relativePath}" (${occurrences} replacement${occurrences > 1 ? "s" : ""}, lines: ${oldLines} -> ${newLines}).`;
   } catch (err: unknown) {

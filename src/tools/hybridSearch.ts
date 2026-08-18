@@ -38,6 +38,14 @@ const indexCache = new Map<string, CacheEntry>();
 const CACHE_TTL_MS = 10000; // 10 segundos de vigencia
 
 /**
+ * Limpia la caché del índice de búsqueda en memoria.
+ * Invocada automáticamente cuando se modifica o parcha un archivo en el proyecto.
+ */
+export function clearIndexCache(): void {
+  indexCache.clear();
+}
+
+/**
  * Construye u obtiene de la caché en memoria un índice MiniSearch para los archivos del proyecto.
  * 
  * @param rootPath Ruta absoluta de la raíz del proyecto.
@@ -105,16 +113,17 @@ async function buildProjectIndex(
       if (await isBinaryFileAsync(fullPath)) continue;
 
       const rawContent = await fs.readFile(fullPath, "utf-8");
+      const normalizedContent = rawContent.replace(/\r\n/g, "\n");
       const ext = path.extname(entry.relativePath);
-      const symbols = extractSymbols(rawContent, ext);
+      const symbols = extractSymbols(normalizedContent, ext);
       const symbolNames = symbols.map((s) => s.signature).join(" ");
-      const lines = rawContent.split("\n");
+      const lines = normalizedContent.split("\n");
 
       const doc: CodeDocument = {
         id: entry.relativePath,
         file: entry.relativePath,
         symbols: symbolNames,
-        content: rawContent,
+        content: normalizedContent,
         ext,
         lineCount: lines.length,
       };

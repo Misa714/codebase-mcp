@@ -55,7 +55,7 @@ export async function handleReadProjectFile(
 
     // 5. Leer el contenido del archivo e identificar los rangos de líneas solicitados
     const content = await fs.readFile(fullPath, "utf-8");
-    const lines = content.split("\n");
+    const lines = content.replace(/\r\n/g, "\n").split("\n");
 
     const start = startLine ? Math.max(1, startLine) : 1;
     const end = endLine ? Math.min(lines.length, endLine) : lines.length;

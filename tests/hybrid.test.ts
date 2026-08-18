@@ -45,6 +45,24 @@ describe("Hybrid Search and Safe Patching (v2.0.0)", () => {
     }
   });
 
+  it("handleApplyFilePatch should handle Windows CRLF line endings transparently", async () => {
+    const testFile = path.join(root, "tests", "temp_crlf_test.txt");
+    // Archivo creado explícitamente con CRLF
+    await fs.writeFile(testFile, "line 1\r\nold_crlf_value\r\nline 3", "utf-8");
+
+    try {
+      // IA envía target con LF estándar \n
+      const patchRes = await handleApplyFilePatch(root, "tests/temp_crlf_test.txt", "old_crlf_value", "new_crlf_value");
+      expect(patchRes).toContain("Successfully patched");
+
+      const updated = await fs.readFile(testFile, "utf-8");
+      expect(updated).toContain("new_crlf_value");
+      expect(updated).toContain("\r\n"); // Preserva CRLF original
+    } finally {
+      await fs.unlink(testFile).catch(() => {});
+    }
+  });
+
   it("handleApplyFilePatch should block sensitive files", async () => {
     const res = await handleApplyFilePatch(root, ".env", "A=1", "A=2");
     expect(res).toContain("Error: Access denied");
