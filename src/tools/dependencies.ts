@@ -16,7 +16,7 @@ function extractImportSpecifiers(content: string, ext: string): string[] {
       continue;
     }
 
-    // 1. JS / TS: import ... from "...", require("..."), export * from "..."
+    // 1. JS / TS: import ... from "...", require("..."), export * from "...", import("...")
     if ([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"].includes(lowerExt)) {
       const importMatch = trimmed.match(/(?:import|export)\s+(?:.*?from\s+)?['"]([^'"]+)['"]/);
       if (importMatch && importMatch[1]) {
@@ -27,6 +27,12 @@ function extractImportSpecifiers(content: string, ext: string): string[] {
       const requireMatch = trimmed.match(/require\(\s*['"]([^'"]+)['"]\s*\)/);
       if (requireMatch && requireMatch[1]) {
         specifiers.push(requireMatch[1]);
+        continue;
+      }
+
+      const dynamicImportMatch = trimmed.match(/import\(\s*['"]([^'"]+)['"]\s*\)/);
+      if (dynamicImportMatch && dynamicImportMatch[1]) {
+        specifiers.push(dynamicImportMatch[1]);
         continue;
       }
     }

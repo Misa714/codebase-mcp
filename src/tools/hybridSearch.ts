@@ -27,7 +27,18 @@ export interface HybridSearchResult {
 }
 
 /**
- * Construye un índice MiniSearch en memoria para los archivos del proyecto.
+ * Entrada de caché en memoria con expiración por tiempo (TTL: 10 segundos).
+ */
+interface CacheEntry {
+  timestamp: number;
+  data: { miniSearch: MiniSearch<CodeDocument>; documents: Map<string, CodeDocument> };
+}
+
+const indexCache = new Map<string, CacheEntry>();
+const CACHE_TTL_MS = 10000; // 10 segundos de vigencia
+
+/**
+ * Construye u obtiene de la caché en memoria un índice MiniSearch para los archivos del proyecto.
  * 
  * @param rootPath Ruta absoluta de la raíz del proyecto.
  * @param fileExtensions Filtro opcional por extensiones.
@@ -38,6 +49,14 @@ async function buildProjectIndex(
   fileExtensions?: string[] | string,
   pathPattern?: string
 ): Promise<{ miniSearch: MiniSearch<CodeDocument>; documents: Map<string, CodeDocument> }> {
+  const cacheKey = `${rootPath}::${JSON.stringify(fileExtensions || "")}::${pathPattern || ""}`;
+  const now = Date.now();
+  const cached = indexCache.get(cacheKey);
+
+  if (cached && now - cached.timestamp < CACHE_TTL_MS) {
+    return cached.data;
+  }
+
   let allowedExts: Set<string> | null = null;
   if (fileExtensions) {
     const rawList = Array.isArray(fileExtensions) ? fileExtensions : fileExtensions.split(",");
@@ -108,7 +127,10 @@ async function buildProjectIndex(
   }
 
   miniSearch.addAll(docsList);
-  return { miniSearch, documents: docsMap };
+  const result = { miniSearch, documents: docsMap };
+  indexCache.set(cacheKey, { timestamp: now, data: result });
+
+  return result;
 }
 
 /**
