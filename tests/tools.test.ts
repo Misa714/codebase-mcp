@@ -4,6 +4,8 @@ import { handleSearchCodebase } from "../src/tools/search.js";
 import { handleReadProjectFile } from "../src/tools/reader.js";
 import { handleInspectTechStack } from "../src/tools/techStack.js";
 import { handleGetFileOutline, extractSymbols } from "../src/tools/outline.js";
+import { handleGetFileDependencies } from "../src/tools/dependencies.js";
+import { handleGetGitChanges } from "../src/tools/git.js";
 
 /**
  * Suite de pruebas unitarias para los manejadores de herramientas MCP.
@@ -94,5 +96,19 @@ describe("MCP tool handlers", () => {
     expect(symbols.some((s) => s.signature.includes("class UserService"))).toBe(true);
     expect(symbols.some((s) => s.signature.includes("getUser"))).toBe(true);
     expect(symbols.some((s) => s.signature.includes("helper"))).toBe(true);
+  });
+
+  it("handleGetFileDependencies should analyze outgoing imports and inbound dependents", async () => {
+    const result = await handleGetFileDependencies(root, "src/utils/fileSystem.ts");
+    expect(result).toContain("Dependency & Impact Analysis for: src/utils/fileSystem.ts");
+    expect(result).toContain("Outgoing Dependencies");
+    expect(result).toContain("Inbound Dependents / Impact Analysis");
+    expect(result).toContain("src/tools/tree.ts");
+  });
+
+  it("handleGetGitChanges should return working tree status and diff", async () => {
+    const result = await handleGetGitChanges(root, true);
+    expect(typeof result).toBe("string");
+    expect(result.length).toBeGreaterThan(0);
   });
 });

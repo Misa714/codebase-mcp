@@ -24,9 +24,11 @@
 
 - **Configuración Cero (Zero-Config)**: Ejecuta simplemente `npx 714-mcp-tool` en cualquier carpeta o especifica `--path /ruta/al/proyecto`.
 - **E/S Asíncrona de Alto Rendimiento**: Operaciones sobre el sistema de archivos no bloqueantes con detección automática de archivos binarios.
-- **Árbol de Proyecto Inteligente (`get_project_tree`)**: Genera mapas limpios en texto plano ASCII respetando `.gitignore`, compatible con subcarpetas (`sub_path`) y soporte multiplataforma.
+- **Árbol de Proyecto Inteligente (`get_project_tree`)**: Genera mapas limpios en texto plano ASCII respetando `.gitignore`, con soporte para subcarpetas (`sub_path`).
 - **Búsqueda Instantánea con Filtros (`search_codebase`)**: Búsqueda rápida estilo grep con números de línea, snippets, regex (`use_regex`), filtros de extensión (`file_extensions`) y subcarpeta (`path_pattern`).
 - **Esquema e Índice de Símbolos (`get_file_outline`)**: Extrae la tabla de contenidos (funciones, clases, interfaces, métodos, encabezados) con números de línea para ahorrar memoria y contexto a la IA.
+- **Análisis de Dependencias e Impacto (`get_file_dependencies`)**: Analiza qué librerías importa un archivo y qué otros archivos del proyecto se verán afectados si se modifica.
+- **Inspección de Cambios Git y Diff (`get_git_changes`)**: Muestra archivos modificados, staged y diffs de código para revisiones y generación de commits.
 - **Lectura Segura de Archivos (`read_project_file`)**: Lee archivos completos o rangos de líneas (`start_line`, `end_line`) con límites de tamaño y protección contra Path Traversal.
 - **Seguridad Integrada**: Bloquea y protege automáticamente archivos sensibles (`.env`, `.pem`, `id_rsa`, `credentials.json`, `secrets.json`, `.npmrc`, `.pypirc`, etc.).
 - **Diagnóstico de Stack Tecnológico (`inspect_tech_stack`)**: Identifica proyectos Node.js, Python, Go, Rust, Java, PHP, Ruby y entornos Docker.
@@ -38,28 +40,20 @@
 No necesitas clonar este repositorio manualmente para usarlo. Tu asistente de IA ejecuta `codebase-mcp` en segundo plano como un proceso local cuando lo necesita.
 
 ```text
-[ Usuario ] -- "¿Dónde está la función de filtrado de archivos sensibles?"
+[ Usuario ] -- "¿Qué pasa si modifico la función 'isSensitiveFile'?"
     │
     ▼
-[ Asistente IA (Antigravity / Claude / Cursor) ] -- (Detecta herramientas de codebase-mcp)
+[ Asistente IA ] -- (Detecta herramientas de codebase-mcp)
     │
-    ├─► 1. Consulta índice: get_file_outline(relative_path: "src/utils/fileSystem.ts")
-    │   └─► Retorna: "L78 | [function] export function isSensitiveFile..."
+    ├─► 1. Consulta dependencias: get_file_dependencies(relative_path: "src/utils/fileSystem.ts")
+    │   └─► Retorna: "4 archivos dependen de este módulo: reader.ts, search.ts, tree.ts, outline.ts"
     │
-    ├─► 2. Lee función exacta: read_project_file(relative_path: "src/utils/fileSystem.ts", start_line: 78, end_line: 115)
-    │
-    ▼
-[ codebase-mcp (Proceso local en segundo plano) ]
-    │
-    ├─► Escanea y lee el archivo aplicando seguridad y límites
-    └─► Retorna las líneas exactas
+    ├─► 2. Revisa cambios locales: get_git_changes()
+    │   └─► Retorna: "Archivos modificados y diff actual"
     │
     ▼
-[ Asistente IA ] -- "La función se encuentra en la línea 78 de src/utils/fileSystem.ts..."
+[ Asistente IA ] -- "Modificar 'isSensitiveFile' afectará a 4 herramientas. Procedo con los cambios seguros..."
 ```
-
-- **Cero Subidas a la Nube**: Todo el análisis ocurre 100% en tu computadora local.
-- **Consumo bajo demanda**: La herramienta solo consume recursos cuando la IA la invoca.
 
 ---
 
@@ -98,46 +92,19 @@ Agrega el servidor a tu archivo de configuración global `~/.gemini/config/mcp_c
 
 ### 2. Claude Code (CLI de Anthropic)
 
-Ejecuta el siguiente comando en tu terminal:
-
 ```bash
 claude mcp add codebase-mcp -- npx -y 714-mcp-tool
 ```
 
-Verificar que esté conectado:
-
-```bash
-claude mcp list
-```
-
 ### 3. Cursor IDE
 
-1. Abre **Cursor**.
-2. Ve a **Settings** -> **Cursor Settings** -> **MCP**.
-3. Haz clic en **+ Add New MCP Server**.
-4. Completa:
-   - **Name:** `codebase-mcp`
-   - **Type:** `command`
-   - **Command:** `npx -y 714-mcp-tool`
+1. Abre **Cursor Settings** -> **MCP**.
+2. Haz clic en **+ Add New MCP Server**.
+3. Configura: **Name:** `codebase-mcp`, **Type:** `command`, **Command:** `npx -y 714-mcp-tool`.
 
 ### 4. Claude Desktop
 
 Añade en `claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "714-mcp-tool": {
-      "command": "npx",
-      "args": ["-y", "714-mcp-tool"]
-    }
-  }
-}
-```
-
-### 5. Windsurf IDE
-
-Añade en `~/.codeium/windsurf/mcp_config.json`:
 
 ```json
 {
@@ -156,9 +123,11 @@ Añade en `~/.codeium/windsurf/mcp_config.json`:
 
 | Herramienta | Parámetros | Descripción |
 | :--- | :--- | :--- |
-| **`get_project_tree`** | `max_depth` (defecto: `4`), `sub_path` | Devuelve la estructura en árbol ASCII del proyecto o de una subcarpeta respetando `.gitignore`. |
-| **`search_codebase`** | `query` (requerido), `max_results`, `use_regex`, `file_extensions`, `path_pattern` | Busca patrones de texto o regex en el proyecto con filtros opcionales de extensión y carpeta. |
-| **`get_file_outline`** | `relative_path` (requerido) | Extrae el índice y símbolos (funciones, clases, interfaces, tipos, encabezados) con sus números de línea. |
+| **`get_project_tree`** | `max_depth` (defecto: `4`), `sub_path` | Devuelve la estructura en árbol ASCII del proyecto o subcarpeta respetando `.gitignore`. |
+| **`search_codebase`** | `query` (requerido), `max_results`, `use_regex`, `file_extensions`, `path_pattern` | Busca patrones de texto o regex con filtros opcionales de extensión y carpeta. |
+| **`get_file_outline`** | `relative_path` (requerido) | Extrae índice y símbolos (funciones, clases, interfaces, tipos, encabezados) con líneas. |
+| **`get_file_dependencies`** | `relative_path` (requerido) | Análisis de impacto: qué importa este archivo y qué otros archivos del proyecto dependen de él. |
+| **`get_git_changes`** | `include_diff` (defecto: `true`) | Inspecciona cambios locales de Git (modificados, staged, untracked) y diff para reviews/commits. |
 | **`read_project_file`** | `relative_path` (requerido), `start_line`, `end_line` | Lee el contenido de un archivo de forma segura con números de línea y protección contra binarios. |
 | **`inspect_tech_stack`** | *ninguno* | Analiza manifiestos del proyecto (`package.json`, `Cargo.toml`, etc.) para dar un resumen del stack. |
 
@@ -172,9 +141,11 @@ Añade en `~/.codeium/windsurf/mcp_config.json`:
 
 - **Zero Configuration**: Simply run `npx 714-mcp-tool` in any project folder or specify `--path /path/to/project`.
 - **High-Performance Async I/O**: Fully non-blocking asynchronous filesystem operations with automatic binary file detection.
-- **Smart Tree Inspection (`get_project_tree`)**: Generates clean ASCII directory maps respecting `.gitignore`, supporting subfolders (`sub_path`) and cross-platform paths.
-- **Filtered Instant Search (`search_codebase`)**: Fast grep-style search with line numbers, code snippets, optional regex (`use_regex`), file extension filtering (`file_extensions`), and subfolder filtering (`path_pattern`).
-- **Symbol & File Outline (`get_file_outline`)**: Extracts declaration table of contents (functions, classes, interfaces, methods, headers) with line numbers to conserve AI memory and context.
+- **Smart Tree Inspection (`get_project_tree`)**: Generates clean ASCII directory maps respecting `.gitignore`, supporting subfolders (`sub_path`).
+- **Filtered Instant Search (`search_codebase`)**: Fast grep-style search with line numbers, snippets, optional regex, extension filters, and path filters.
+- **Symbol & File Outline (`get_file_outline`)**: Extracts declaration table of contents (functions, classes, interfaces, methods, headers) with line numbers to conserve AI tokens.
+- **Dependency & Impact Analysis (`get_file_dependencies`)**: Identifies incoming and outgoing dependencies to prevent breaking changes across project files.
+- **Git Changes & Diff Inspection (`get_git_changes`)**: Displays uncommitted changes, status, and code diffs for reviews and commit generation.
 - **Safe File Reading (`read_project_file`)**: Read specific files or line ranges safely with path traversal protection and binary guards.
 - **Security-First**: Automatically redacts and blocks access to sensitive credential files (`.env`, `.pem`, `id_rsa`, `credentials.json`, `secrets.json`, `.npmrc`, `.pypirc`, etc.).
 - **Multi-Language Tech Stack Diagnostics (`inspect_tech_stack`)**: Automatically identifies Node.js, Python, Go, Rust, Java, PHP, Ruby, and Docker setups.
@@ -188,6 +159,8 @@ Añade en `~/.codeium/windsurf/mcp_config.json`:
 | **`get_project_tree`** | `max_depth` (default: `4`), `sub_path` | Returns directory tree for whole project or subfolder respecting `.gitignore`. |
 | **`search_codebase`** | `query` (required), `max_results`, `use_regex`, `file_extensions`, `path_pattern` | Searches codebase with optional extension and subfolder filtering. |
 | **`get_file_outline`** | `relative_path` (required) | Extracts table of contents and declarations with line numbers. |
+| **`get_file_dependencies`** | `relative_path` (required) | Reverse dependency and impact analysis across project files. |
+| **`get_git_changes`** | `include_diff` (default: `true`) | Inspects uncommitted Git changes, modified files, and code diff. |
 | **`read_project_file`** | `relative_path` (required), `start_line`, `end_line` | Safely reads project file contents with line numbers and binary guard. |
 | **`inspect_tech_stack`** | *none* | Analyzes configuration files to summarize language and framework setup. |
 
