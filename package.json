@@ -1,0 +1,39 @@
+{
+  "name": "714-mcp-tool",
+  "version": "1.1.0",
+  "description": "Zero-config CLI that turns any local repository into a Model Context Protocol (MCP) server for Claude, Cursor, and AI agents.",
+  "type": "module",
+  "bin": {
+    "714-mcp-tool": "dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node ./dist/index.js",
+    "dev": "tsx src/index.ts",
+    "test": "vitest run"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "claude",
+    "cursor",
+    "ai",
+    "codebase",
+    "developer-tools",
+    "cli"
+  ],
+  "author": "lembrox",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.6.0",
+    "ignore": "^7.0.3",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.4",
+    "tsx": "^4.19.3",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.5"
+  }
+}
