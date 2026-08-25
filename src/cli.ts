@@ -4,6 +4,8 @@ import { handleSearchCodebase } from "./tools/search.js";
 import { handleReadProjectFile } from "./tools/reader.js";
 import { handleInspectTechStack } from "./tools/techStack.js";
 import { handleGetFileOutline } from "./tools/outline.js";
+import { handleGetFileDependencies } from "./tools/dependencies.js";
+import { handleGetGitChanges } from "./tools/git.js";
 
 /**
  * Inicia la interfaz interactiva de línea de comandos (CLI) para permitir
@@ -34,11 +36,13 @@ export function startInteractiveCLI(rootDir: string, lang: "es" | "en" = "es") {
     console.log(isEs ? "1. Ver árbol del proyecto (get_project_tree)" : "1. View project tree (get_project_tree)");
     console.log(isEs ? "2. Buscar texto en el proyecto (search_codebase)" : "2. Search text in project (search_codebase)");
     console.log(isEs ? "3. Esquema / Índice de un archivo (get_file_outline)" : "3. File outline / Symbol index (get_file_outline)");
-    console.log(isEs ? "4. Leer un archivo del proyecto (read_project_file)" : "4. Read a project file (read_project_file)");
-    console.log(isEs ? "5. Inspeccionar tecnologías (inspect_tech_stack)" : "5. Inspect tech stack (inspect_tech_stack)");
-    console.log(isEs ? "6. Salir" : "6. Exit");
+    console.log(isEs ? "4. Análisis de dependencias e impacto (get_file_dependencies)" : "4. Dependency & impact analysis (get_file_dependencies)");
+    console.log(isEs ? "5. Cambios locales Git / Diff (get_git_changes)" : "5. Local Git changes & diff (get_git_changes)");
+    console.log(isEs ? "6. Leer un archivo del proyecto (read_project_file)" : "6. Read a project file (read_project_file)");
+    console.log(isEs ? "7. Inspeccionar tecnologías (inspect_tech_stack)" : "7. Inspect tech stack (inspect_tech_stack)");
+    console.log(isEs ? "8. Salir" : "8. Exit");
 
-    rl.question("\nOption (1-6): ", async (answer) => {
+    rl.question("\nOption (1-8): ", async (answer) => {
       const choice = answer.trim();
 
       if (choice === "1") {
@@ -65,6 +69,19 @@ export function startInteractiveCLI(rootDir: string, lang: "es" | "en" = "es") {
         );
       } else if (choice === "4") {
         rl.question(
+          isEs ? "Ruta relativa del archivo (ej: src/utils/fileSystem.ts): " : "Relative file path (e.g. src/utils/fileSystem.ts): ",
+          async (filePath) => {
+            const result = await handleGetFileDependencies(rootDir, filePath);
+            console.log("\n" + result);
+            showMenu();
+          }
+        );
+      } else if (choice === "5") {
+        const result = await handleGetGitChanges(rootDir, true);
+        console.log("\n" + result);
+        showMenu();
+      } else if (choice === "6") {
+        rl.question(
           isEs ? "Ruta relativa del archivo (ej: src/index.ts): " : "Relative file path (e.g. src/index.ts): ",
           async (filePath) => {
             const result = await handleReadProjectFile(rootDir, filePath);
@@ -72,11 +89,11 @@ export function startInteractiveCLI(rootDir: string, lang: "es" | "en" = "es") {
             showMenu();
           }
         );
-      } else if (choice === "5") {
+      } else if (choice === "7") {
         const result = await handleInspectTechStack(rootDir);
         console.log("\n" + result);
         showMenu();
-      } else if (choice === "6") {
+      } else if (choice === "8") {
         console.log(isEs ? "\n¡Gracias por usar codebase-mcp!" : "\nThank you for using codebase-mcp!");
         rl.close();
         process.exit(0);

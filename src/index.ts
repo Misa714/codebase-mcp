@@ -8,6 +8,8 @@ import { handleSearchCodebase } from "./tools/search.js";
 import { handleReadProjectFile } from "./tools/reader.js";
 import { handleInspectTechStack } from "./tools/techStack.js";
 import { handleGetFileOutline } from "./tools/outline.js";
+import { handleGetFileDependencies } from "./tools/dependencies.js";
+import { handleGetGitChanges } from "./tools/git.js";
 import { startInteractiveCLI } from "./cli.js";
 
 // Extraer argumentos de la línea de comandos
@@ -33,7 +35,7 @@ if (args.includes("--cli") || args.includes("-c")) {
   const server = new Server(
     {
       name: "codebase-mcp",
-      version: "1.2.0",
+      version: "1.3.0",
     },
     {
       capabilities: {
@@ -131,6 +133,41 @@ if (args.includes("--cli") || args.includes("-c")) {
           },
         },
         {
+          name: "get_file_dependencies",
+          description: isSpanish
+            ? "Analiza las dependencias entrantes y salientes de un archivo (qué módulos usa y qué otros archivos del proyecto se verán afectados si se modifica)."
+            : "Analyzes incoming and outgoing dependencies of a file (what it imports and what other project files will be impacted if changed).",
+          inputSchema: {
+            type: "object",
+            properties: {
+              relative_path: {
+                type: "string",
+                description: isSpanish
+                  ? "Ruta relativa del archivo a analizar (ej: 'src/utils/fileSystem.ts')"
+                  : "Relative path of the file to analyze (e.g. 'src/utils/fileSystem.ts')",
+              },
+            },
+            required: ["relative_path"],
+          },
+        },
+        {
+          name: "get_git_changes",
+          description: isSpanish
+            ? "Inspecciona los archivos modificados, staged y untracked de Git con estadísticas y diff textual para revisiones de código y mensajes de commit."
+            : "Inspects modified, staged, and untracked Git files with statistics and code diff for reviews and commit generation.",
+          inputSchema: {
+            type: "object",
+            properties: {
+              include_diff: {
+                type: "boolean",
+                description: isSpanish
+                  ? "Si es true, incluye el diff textual de los cambios no confirmados (por defecto: true)"
+                  : "If true, includes the textual code diff of uncommitted changes (default: true)",
+              },
+            },
+          },
+        },
+        {
           name: "read_project_file",
           description: isSpanish
             ? "Lee el contenido de un archivo específico del proyecto de forma segura con números de línea."
@@ -191,6 +228,14 @@ if (args.includes("--cli") || args.includes("-c")) {
     get_file_outline: async (toolArgs) => {
       const relativePath = String(toolArgs?.relative_path || "");
       return await handleGetFileOutline(rootDir, relativePath);
+    },
+    get_file_dependencies: async (toolArgs) => {
+      const relativePath = String(toolArgs?.relative_path || "");
+      return await handleGetFileDependencies(rootDir, relativePath);
+    },
+    get_git_changes: async (toolArgs) => {
+      const includeDiff = toolArgs?.include_diff !== undefined ? Boolean(toolArgs.include_diff) : true;
+      return await handleGetGitChanges(rootDir, includeDiff);
     },
     read_project_file: async (toolArgs) => {
       const relativePath = String(toolArgs?.relative_path || "");
