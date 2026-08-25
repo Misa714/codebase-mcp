@@ -5,10 +5,11 @@ const execFileAsync = promisify(execFile);
 
 /**
  * Inspecciona el estado de control de versiones de Git en el proyecto local.
- * Retorna archivos modificados, staged, untracked y un resumen de las diferencias (diff).
+ * Retorna archivos modificados, staged, untracked y un resumen de las diferencias (diff),
+ * incluyendo tanto cambios staged como del directorio de trabajo.
  * 
  * @param rootPath Ruta absoluta de la raíz del proyecto.
- * @param includeDiff Si es true, incluye el diff textual de los cambios no confirmados.
+ * @param includeDiff Si es true, incluye el diff textual de los cambios.
  * @returns Resumen formateado del estado y cambios de Git.
  */
 export async function handleGetGitChanges(rootPath: string, includeDiff: boolean = true): Promise<string> {
@@ -68,27 +69,34 @@ export async function handleGetGitChanges(rootPath: string, includeDiff: boolean
       }
     }
 
-    // 2. Incluir resumen del diff si fue solicitado
+    // 2. Incluir resumen del diff (tanto staged como unstaged vía HEAD con fallback defensivo)
     if (includeDiff) {
       try {
-        const { stdout: diffStat } = await execFileAsync("git", ["diff", "--stat"], {
-          cwd: rootPath,
-          timeout: 5000,
-        });
+        let diffStat = "";
+        let diffOut = "";
+
+        // Intentar primero con git diff HEAD para capturar staged y unstaged juntos
+        try {
+          const resStat = await execFileAsync("git", ["diff", "HEAD", "--stat"], { cwd: rootPath, timeout: 5000 });
+          diffStat = resStat.stdout;
+          const resDiff = await execFileAsync("git", ["diff", "HEAD", "--unified=3"], { cwd: rootPath, timeout: 5000 });
+          diffOut = resDiff.stdout;
+        } catch {
+          // Fallback para repositorios iniciales sin commit HEAD
+          const resStat = await execFileAsync("git", ["diff", "--stat"], { cwd: rootPath, timeout: 5000 });
+          diffStat = resStat.stdout;
+          const resDiff = await execFileAsync("git", ["diff", "--unified=3"], { cwd: rootPath, timeout: 5000 });
+          diffOut = resDiff.stdout;
+        }
 
         if (diffStat && diffStat.trim().length > 0) {
           sections.push(`\n📈 Diff Statistics:\n${diffStat.trim()}`);
         }
 
-        const { stdout: diffOut } = await execFileAsync("git", ["diff", "--unified=3"], {
-          cwd: rootPath,
-          timeout: 5000,
-        });
-
         if (diffOut && diffOut.trim().length > 0) {
           const maxDiffChars = 3000;
           const trimmedDiff = diffOut.length > maxDiffChars ? `${diffOut.slice(0, maxDiffChars)}\n\n[... Diff truncated for brevity]` : diffOut;
-          sections.push(`\n📝 Uncommitted Code Diff:\n\`\`\`diff\n${trimmedDiff.trim()}\n\`\`\``);
+          sections.push(`\n📝 Uncommitted Code Diff (Staged & Working Tree):\n\`\`\`diff\n${trimmedDiff.trim()}\n\`\`\``);
         }
       } catch {
         // Ignorar errores en diff si git status funcionó

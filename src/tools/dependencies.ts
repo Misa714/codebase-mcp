@@ -16,7 +16,7 @@ function extractImportSpecifiers(content: string, ext: string): string[] {
       continue;
     }
 
-    // 1. JS / TS: import ... from "...", require("..."), export * from "..."
+    // 1. JS / TS: import ... from "...", require("..."), export * from "...", import("...")
     if ([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"].includes(lowerExt)) {
       const importMatch = trimmed.match(/(?:import|export)\s+(?:.*?from\s+)?['"]([^'"]+)['"]/);
       if (importMatch && importMatch[1]) {
@@ -27,6 +27,12 @@ function extractImportSpecifiers(content: string, ext: string): string[] {
       const requireMatch = trimmed.match(/require\(\s*['"]([^'"]+)['"]\s*\)/);
       if (requireMatch && requireMatch[1]) {
         specifiers.push(requireMatch[1]);
+        continue;
+      }
+
+      const dynamicImportMatch = trimmed.match(/import\(\s*['"]([^'"]+)['"]\s*\)/);
+      if (dynamicImportMatch && dynamicImportMatch[1]) {
+        specifiers.push(dynamicImportMatch[1]);
         continue;
       }
     }
@@ -58,16 +64,21 @@ function resolveLocalImport(fromFileRelative: string, specifier: string): string
   }
 
   const fromDir = path.dirname(fromFileRelative);
-  const resolved = normalizePath(path.normalize(path.join(fromDir, specifier)));
+  // Si es Python con .nombre (ej: .utils -> ./utils o ..models -> ../models)
+  const normalizedSpec = specifier.startsWith(".") && !specifier.startsWith("./") && !specifier.startsWith("../")
+    ? specifier.replace(/^\.+/, (dots) => (dots.length === 1 ? "./" : "../".repeat(dots.length - 1)))
+    : specifier;
+
+  const resolved = normalizePath(path.normalize(path.join(fromDir, normalizedSpec)));
   return resolved;
 }
 
 /**
- * Comprueba si dos rutas relativas corresponden al mismo módulo (ignorando extensiones .ts, .js, .tsx, .jsx).
+ * Comprueba si dos rutas relativas corresponden al mismo módulo (ignorando extensiones .ts, .js, .tsx, .jsx, .py).
  */
 function isMatchingModule(pathA: string, pathB: string): boolean {
-  const normA = normalizePath(pathA).replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/, "");
-  const normB = normalizePath(pathB).replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/, "");
+  const normA = normalizePath(pathA).replace(/\.(ts|tsx|js|jsx|mjs|cjs|py)$/, "");
+  const normB = normalizePath(pathB).replace(/\.(ts|tsx|js|jsx|mjs|cjs|py)$/, "");
   return normA === normB || normA.endsWith(`/${normB}`) || normB.endsWith(`/${normA}`);
 }
 

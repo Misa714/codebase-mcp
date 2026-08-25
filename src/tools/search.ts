@@ -98,7 +98,7 @@ export async function handleSearchCodebase(
       if (await isBinaryFileAsync(fullPath)) continue;
 
       const fileContent = await fs.readFile(fullPath, "utf-8");
-      const lines = fileContent.split("\n");
+      const lines = fileContent.replace(/\r\n/g, "\n").split("\n");
 
       for (let i = 0; i < lines.length; i++) {
         if (matches.length >= maxResults) break;

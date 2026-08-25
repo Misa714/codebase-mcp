@@ -1,0 +1,6 @@
+# Smithery configuration for codebase-mcp (714-mcp-tool)
+startCommand:
+  type: stdio
+  config: {}
+  command: "node"
+  args: ["dist/index.js"]
