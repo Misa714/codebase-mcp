@@ -19,9 +19,23 @@ const DEFAULT_IGNORES = [
   "*.id_ed25519",
   "*.p12",
   "*.pfx",
+  "*.kdbx",
+  "*.keystore",
   ".DS_Store",
   "coverage",
+  ".npmrc",
+  ".pypirc",
 ];
+
+/**
+ * Normaliza las barras de ruta para garantizar consistencia multiplataforma (Windows y Unix).
+ * 
+ * @param p Ruta a normalizar.
+ * @returns Ruta con separadores estándar '/'
+ */
+export function normalizePath(p: string): string {
+  return p.replace(/\\/g, "/");
+}
 
 /**
  * Obtiene de forma asincrónica una instancia de la librería 'ignore' cargada
@@ -44,8 +58,6 @@ export async function getIgnoreInstanceAsync(rootPath: string): Promise<Ignore> 
 
   return ig;
 }
-
-
 
 /**
  * Valida si una ruta de archivo o directorio se encuentra estrictamente dentro
@@ -76,45 +88,85 @@ export function isPathSafe(rootPath: string, relativeOrAbsolutePath: string): { 
  * @returns Verdadero si el archivo contiene credenciales o información sensible.
  */
 export function isSensitiveFile(filename: string): boolean {
-  const base = path.basename(filename).toLowerCase();
+  const normalized = normalizePath(filename);
+  const base = path.basename(normalized).toLowerCase();
   
-  // Bloquear archivos de variables de entorno (.env, .env.local, etc.)
-  if (base.startsWith(".env")) return true;
+  // Bloquear archivos de variables de entorno (.env, .env.local, .env.production, etc.)
+  if (base === ".env" || base.startsWith(".env.")) return true;
   
-  // Bloquear extensiones de llaves y certificados digitales
+  // Bloquear extensiones de llaves, almacenes seguros y certificados digitales
   if (
     base.endsWith(".pem") ||
     base.endsWith(".key") ||
     base.endsWith(".id_rsa") ||
     base.endsWith(".id_ed25519") ||
     base.endsWith(".p12") ||
-    base.endsWith(".pfx")
+    base.endsWith(".pfx") ||
+    base.endsWith(".kdbx") ||
+    base.endsWith(".keystore") ||
+    base.endsWith(".jks")
   ) {
     return true;
   }
   
-  // Bloquear nombres específicos de archivos de secretos y credenciales de nube
+  // Bloquear nombres específicos de archivos de secretos, tokens y credenciales de nube
   if (
     base === "id_rsa" ||
     base === "id_ed25519" ||
     base === "id_dsa" ||
+    base === "id_ecdsa" ||
     base === "credentials.json" ||
     base === "secrets.json" ||
     base === "service-account.json" ||
     base === "service_account.json" ||
-    base === ".htpasswd"
+    base === ".htpasswd" ||
+    base === ".npmrc" ||
+    base === ".pypirc" ||
+    base === "oauth_credentials.json"
   ) {
     return true;
   }
   
+  // Bloquear configuraciones de kube o credenciales en subdirectorios sensibles
+  if (normalized.includes(".kube/config") || normalized.includes(".aws/credentials")) {
+    return true;
+  }
+
   return false;
+}
+
+/**
+ * Comprueba de forma rápida si un archivo es binario leyendo una muestra inicial (hasta 512 bytes).
+ * Si contiene bytes nulos (\0), se considera binario (ej. imágenes, PDFs, bases de datos sqlite, binarios ELF).
+ * 
+ * @param fullPath Ruta física completa al archivo.
+ * @returns Verdadero si el archivo parece ser binario.
+ */
+export async function isBinaryFileAsync(fullPath: string): Promise<boolean> {
+  try {
+    const handle = await fs.open(fullPath, "r");
+    try {
+      const buffer = Buffer.alloc(512);
+      const { bytesRead } = await handle.read(buffer, 0, 512, 0);
+      for (let i = 0; i < bytesRead; i++) {
+        if (buffer[i] === 0) {
+          return true;
+        }
+      }
+      return false;
+    } finally {
+      await handle.close();
+    }
+  } catch {
+    return false;
+  }
 }
 
 /**
  * Estructura que representa una entrada del sistema de archivos encontrada durante el escaneo.
  */
 export interface FileEntry {
-  /** Ruta relativa respecto a la raíz del repositorio */
+  /** Ruta relativa respecto a la raíz del repositorio (normalizada con '/') */
   relativePath: string;
   /** Indica si la entrada es un directorio */
   isDir: boolean;
@@ -166,7 +218,8 @@ export async function scanDirectoryAsync(
 
     for (const entry of entries) {
       const fullPath = path.join(dirPath, entry.name);
-      const relativePath = path.relative(rootPath, fullPath);
+      const rawRelative = path.relative(rootPath, fullPath);
+      const relativePath = normalizePath(rawRelative);
 
       if (!relativePath) continue;
 
@@ -223,7 +276,3 @@ export async function scanDirectoryAsync(
 
   return results;
 }
-
-
-
-

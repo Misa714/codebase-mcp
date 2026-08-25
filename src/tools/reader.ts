@@ -1,5 +1,5 @@
 import fs from "fs/promises";
-import { isPathSafe, isSensitiveFile, getIgnoreInstanceAsync } from "../utils/fileSystem.js";
+import { isPathSafe, isSensitiveFile, getIgnoreInstanceAsync, isBinaryFileAsync } from "../utils/fileSystem.js";
 
 /**
  * Lee el contenido de un archivo específico del proyecto de forma segura,
@@ -48,6 +48,11 @@ export async function handleReadProjectFile(
       return `Error: File "${relativePath}" is too large (>2MB).`;
     }
 
+    // Verificar si es un archivo binario
+    if (await isBinaryFileAsync(fullPath)) {
+      return `Error: "${relativePath}" is a binary file and cannot be displayed as text.`;
+    }
+
     // 5. Leer el contenido del archivo e identificar los rangos de líneas solicitados
     const content = await fs.readFile(fullPath, "utf-8");
     const lines = content.split("\n");
@@ -72,5 +77,3 @@ export async function handleReadProjectFile(
     return `Error reading file: ${msg}`;
   }
 }
-
-

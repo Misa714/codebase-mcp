@@ -3,6 +3,7 @@ import { handleGetProjectTree } from "./tools/tree.js";
 import { handleSearchCodebase } from "./tools/search.js";
 import { handleReadProjectFile } from "./tools/reader.js";
 import { handleInspectTechStack } from "./tools/techStack.js";
+import { handleGetFileOutline } from "./tools/outline.js";
 
 /**
  * Inicia la interfaz interactiva de línea de comandos (CLI) para permitir
@@ -32,11 +33,12 @@ export function startInteractiveCLI(rootDir: string, lang: "es" | "en" = "es") {
     console.log("\n" + (isEs ? "Selecciona una opción:" : "Select an option:"));
     console.log(isEs ? "1. Ver árbol del proyecto (get_project_tree)" : "1. View project tree (get_project_tree)");
     console.log(isEs ? "2. Buscar texto en el proyecto (search_codebase)" : "2. Search text in project (search_codebase)");
-    console.log(isEs ? "3. Leer un archivo del proyecto (read_project_file)" : "3. Read a project file (read_project_file)");
-    console.log(isEs ? "4. Inspeccionar tecnologías (inspect_tech_stack)" : "4. Inspect tech stack (inspect_tech_stack)");
-    console.log(isEs ? "5. Salir" : "5. Exit");
+    console.log(isEs ? "3. Esquema / Índice de un archivo (get_file_outline)" : "3. File outline / Symbol index (get_file_outline)");
+    console.log(isEs ? "4. Leer un archivo del proyecto (read_project_file)" : "4. Read a project file (read_project_file)");
+    console.log(isEs ? "5. Inspeccionar tecnologías (inspect_tech_stack)" : "5. Inspect tech stack (inspect_tech_stack)");
+    console.log(isEs ? "6. Salir" : "6. Exit");
 
-    rl.question("\nOption (1-5): ", async (answer) => {
+    rl.question("\nOption (1-6): ", async (answer) => {
       const choice = answer.trim();
 
       if (choice === "1") {
@@ -56,16 +58,25 @@ export function startInteractiveCLI(rootDir: string, lang: "es" | "en" = "es") {
         rl.question(
           isEs ? "Ruta relativa del archivo (ej: src/index.ts): " : "Relative file path (e.g. src/index.ts): ",
           async (filePath) => {
-            const result = await handleReadProjectFile(rootDir, filePath);
+            const result = await handleGetFileOutline(rootDir, filePath);
             console.log("\n" + result);
             showMenu();
           }
         );
       } else if (choice === "4") {
+        rl.question(
+          isEs ? "Ruta relativa del archivo (ej: src/index.ts): " : "Relative file path (e.g. src/index.ts): ",
+          async (filePath) => {
+            const result = await handleReadProjectFile(rootDir, filePath);
+            console.log("\n" + result);
+            showMenu();
+          }
+        );
+      } else if (choice === "5") {
         const result = await handleInspectTechStack(rootDir);
         console.log("\n" + result);
         showMenu();
-      } else if (choice === "5") {
+      } else if (choice === "6") {
         console.log(isEs ? "\n¡Gracias por usar codebase-mcp!" : "\nThank you for using codebase-mcp!");
         rl.close();
         process.exit(0);
@@ -78,5 +89,3 @@ export function startInteractiveCLI(rootDir: string, lang: "es" | "en" = "es") {
 
   showMenu();
 }
-
-
